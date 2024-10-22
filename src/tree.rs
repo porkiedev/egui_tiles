@@ -325,6 +325,39 @@ impl<Pane> Tree<Pane> {
         ui.advance_cursor_after_rect(rect);
     }
 
+    /// The same as [Self::ui()], but without garbage-collection.
+    pub fn ui_no_gc(&mut self, behavior: &mut dyn Behavior<Pane>, ui: &mut Ui) {
+        self.simplify(&behavior.simplification_options());
+
+        self.tiles.rects.clear();
+
+        // Check if anything is being dragged:
+        let mut drop_context = DropContext {
+            enabled: true,
+            dragged_tile_id: self.dragged_id(ui.ctx()),
+            mouse_pos: ui.input(|i| i.pointer.interact_pos()),
+            best_dist_sq: f32::INFINITY,
+            best_insertion: None,
+            preview_rect: None,
+        };
+
+        let mut rect = ui.available_rect_before_wrap();
+        if self.height.is_finite() {
+            rect.set_height(self.height);
+        }
+        if self.width.is_finite() {
+            rect.set_width(self.width);
+        }
+        if let Some(root) = self.root {
+            self.tiles.layout_tile(ui.style(), behavior, rect, root);
+
+            self.tile_ui(behavior, &mut drop_context, ui, root);
+        }
+
+        self.preview_dragged_tile(behavior, &drop_context, ui);
+        ui.advance_cursor_after_rect(rect);
+    }
+
     /// Sets the exact height that can be used by the tree.
     ///
     /// Determines the height that will be used by the tree component.
